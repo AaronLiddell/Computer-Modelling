@@ -217,13 +217,13 @@ class Cosmology:
                 mu = np.nan
             distance_mod.append(mu)
 
-        return distance_mod, z_array
+        return distance_mod
 
 
 if __name__ == "__main__":
-    cosmo = Cosmology(80, 0.4, 0.65)
+    cosmo = Cosmology(70,0.3,0.7)
     z_array = np.linspace(0.01, 1.0, 50)
-    z = 1.5
+    z = 1
     n = 1000
-    distance_mod, _ = cosmo.distanceModuli(np.array([z]), n)
+    distance_mod = cosmo.distanceModuli(np.array([z]), n)
     print("Distance moduli:", distance_mod)
