@@ -224,6 +224,6 @@ if __name__ == "__main__":
     cosmo = Cosmology(70,0.3,0.7)
     z_array = np.linspace(0.01, 1.0, 50)
     z = 1
-    n = 1000
+    n = 2500
     distance_mod = cosmo.distanceModuli(np.array([z]), n)
     print("Distance moduli:", distance_mod)
