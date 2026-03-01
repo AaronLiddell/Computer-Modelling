@@ -282,70 +282,96 @@ class Likelihood:
         mag = self.magnitude(n)
         
     def likelihoodGrid3d(self, n):
+        """
+        Build a three-dimensional log-likelihood grid for the standard model.
+
+        Parameters
+        ----------
+        n : int
+            Number of integration points for distance calculation.
+
+        Returns
+        -------
+        like_grid_3d : np.ndarray
+            Three-dimensional array of log-likelihood values with axis order
+            (H0, Omega_m, Omega_lambda).
+        p0 : np.ndarray
+            Sampled Omega_m values.
+        p1 : np.ndarray
+            Sampled Omega_lambda values.
+        p2 : np.ndarray
+            Sampled H0 values.
+        """
         points = 10
 
-        p0_min, p0_max = 0.2, 0.4  #omegam
+        p0_min, p0_max = 0.1, 0.5  #omegam
         p0 = np.linspace(p0_min, p0_max, points)
 
-        p1_min, p1_max = 0.6, 0.8  #omega lambda
+        p1_min, p1_max = 0.5, 0.9  #omega lambda
         p1 = np.linspace(p1_min, p1_max, points)
 
-        p2_min, p2_max = 71.3, 72.8  #H0
+        p2_min, p2_max = 70, 73  #H0
         p2 = np.linspace(p2_min, p2_max, points)
 
         like_grid_3d = np.zeros((points, points, points))
+        # Axis convention for this grid: i->H0, j->Omega_m, k->Omega_lambda.
 
         for i in range(points):
             for j in range(points):
                 for k in range(points):
                     params = p2[i], p0[j], p1[k] 
-                    loglike = self.negLogLikelihood(params, n, "standard")
+                    loglike = -self.negLogLikelihood(params, n, "standard")
+                    # Store true log-likelihood (not negative log-likelihood) for later marginalization.
                     like_grid_3d[i, j, k] = loglike
-                    
-                    #if p0[j] + p1[k] <= 1.0:
-                     #   params = p2[i], p0[j], p1[k] 
-                      #  loglike = self.negLogLikelihood(params, n, "standard")
-                       # like_grid_3d[i, j, k] = loglike
-                    #else:
-                     #   like_grid_3d[i, j, k] = np.nan
 
-        return like_grid_3d
+        return like_grid_3d, p0, p1, p2
 
-    def marginalizedLikelihoods(self, G3d):
-        G3d_max = np.nanmax(G3d, axis=0)
+    def marginalizedLikelihoods(self, G3d, p0, p1, p2):
+        """
+        Compute and plot marginalized 2D and 1D likelihoods from a 3D grid.
 
-        vals = G3d[~np.isnan(G3d)]
-        print("min logL:", np.min(vals), "max logL:", np.max(vals))
-        print("max - min:", np.max(vals) - np.min(vals))
+        Parameters
+        ----------
+        G3d : np.ndarray
+            Three-dimensional log-likelihood grid with axis order
+            (H0, Omega_m, Omega_lambda).
+        p0 : np.ndarray
+            Sampled Omega_m values used to build the grid.
+        p1 : np.ndarray
+            Sampled Omega_lambda values used to build the grid.
+        p2 : np.ndarray
+            Sampled H0 values used to build the grid.
 
-
-
+        Returns
+        -------
+        None
+        """
+        G3d_max = np.nanmax(G3d)  # axis order in G3d is: i=H0, j=Omega_m, k=Omega_lambda
+        L3d = np.exp(G3d - G3d_max)
 
         #Marginalize 2d likelihoods
         #marginalize over H0
-        margin_H0 = np.nansum(np.exp(G3d - G3d_max), axis = 0)
-        print(margin_H0)
+        margin_H0 = np.nansum(L3d, axis = 0)
+        # axis=0 sums over i (H0), leaving (Omega_m, Omega_lambda).
 
         #marginalize over omega m
-        margin_omega_m = np.nansum(np.exp(G3d - G3d_max), axis = 1)
+        margin_omega_m = np.nansum(L3d, axis = 1)
+        # axis=1 sums over j (Omega_m), leaving (H0, Omega_lambda).
 
         #marginalize over omega lambda
-        margin_omega_lambda = np.nansum(np.exp(G3d - G3d_max), axis = 2)
+        margin_omega_lambda = np.nansum(L3d, axis = 2)
+        # axis=2 sums over k (Omega_lambda), leaving (H0, Omega_m).
 
 
         #marginalized 1d likelihoods
-        #margin. over H0 and omega m
-        margin_H0_omega_m = np.nansum(np.exp(G3d - G3d_max), axis = (0, 1))
-
-        #margin. over H0 and omega lambda
-        margin_H0_omega_lambda = np.nansum(np.exp(G3d-G3d_max), axis = (0, 2))
-
-        #margin. over omega m and omega lambda
-        margin_omega_m_omega_lambda = np.nansum(np.exp(G3d - G3d_max), axis = (1, 2))
+        P_H0 = np.nansum(L3d, axis = (1, 2))
+        P_omega_m = np.nansum(L3d, axis = (0, 2))
+        P_omega_lambda = np.nansum(L3d, axis = (0, 1))
+        # Each 1D curve integrates out the other two parameters.
 
 
         #plot the 2d results
-        #plt.figure()
+        plt.figure()
         plt.imshow(margin_H0)
         plt.xlabel("Omega m")
         plt.ylabel("Omega lambda")
@@ -353,16 +379,212 @@ class Likelihood:
         plt.colorbar(label = "Likelihood")
         plt.show()
 
-        #plt.figure()
-        #plt.imshow(margin_omega_m)
-        #plt.xlabel("H0")
-        #plt.ylabel("Omega lambda")
-        #plt.title("Marginalized Likelihood over omega m")
-        #plt.colorbar(label = "Likelihood")
-        #plt.show()
+        plt.figure()
+        plt.imshow(margin_omega_m)
+        plt.xlabel("H0")
+        plt.ylabel("Omega lambda")
+        plt.title("Marginalized Likelihood over omega m")
+        plt.colorbar(label = "Likelihood")
+        plt.show()
+
+        plt.figure()
+        plt.imshow(margin_omega_lambda)
+        plt.xlabel("H0")
+        plt.ylabel("Omega m")
+        plt.title("Marginalized Likelihood over omega lambda")
+        plt.colorbar(label = "Likelihood")
+        plt.show()
+
+
+        #plot the 1d results
+        plt.figure()
+        plt.plot(p2, P_H0)
+        plt.xlabel("H0")
+        plt.ylabel("Normalized marginalized likelihood")
+        plt.title("1D marginalized likelihood for H0")
+        plt.show()
+
+        plt.figure()
+        plt.plot(p0, P_omega_m)
+        plt.xlabel("Omega m")
+        plt.ylabel("Normalized marginalized likelihood")
+        plt.title("1D marginalized likelihood for Omega m")
+        plt.show()
+
+        plt.figure()
+        plt.plot(p1, P_omega_lambda)
+        plt.xlabel("Omega lambda")
+        plt.ylabel("Normalized marginalized likelihood")
+        plt.title("1D marginalized likelihood for Omega lambda")
+        plt.show()
+        
+
+class Metropolis:
+    """
+    Run a Metropolis MCMC analysis for cosmological parameters.
+
+    The sampler uses a Gaussian random-walk proposal in the parameter order
+    [H0, Omega_m, Omega_lambda], stores the chain and log-likelihood trace,
+    and provides simple plotting/analysis utilities.
+    """
+
+    #def __init__(self, like, loglike_fn, initial_params, proposal_scales, n_steps, rng=None):
+     #   self.like = like
+      #  self.loglike_fn = loglike_fn
+       # self.current_params = np.array(initial_params)
+        #self.proposal_scales = np.array(proposal_scales)  #0.3, 0.07, 0.1
+        #self.n_steps = n_steps
+        #self.rng = np.random.default_rng(rng)
+        #self.current_loglike = self.loglike_fn(self.current_params)
+
+    def __init__(self, like):
+        """
+        Initialize Metropolis sampler settings and storage arrays.
+
+        Parameters
+        ----------
+        like : Likelihood
+            Likelihood object used to evaluate log-likelihood values.
+
+        Returns
+        -------
+        None
+        """
+        self.like = like
+        self.n = 2500  #integration steps
+        self.steps = 20000
+
+        self.step_size = np.array([0.3, 0.07, 0.1])
+        self.rng = np.random.default_rng()
+
+        self.current_params = np.array([68, 0.15, 0.9])
+        # Start away from best-fit so burn-in behavior is visible in the trace.
+
+        self.current_loglike = -self.like.negLogLikelihood(self.current_params, self.n, model_type = "standard")
+
+        self.chain = np.zeros((self.steps, 3))
+        self.logL_chain = np.zeros(self.steps)
+
+        self.chain[0] = self.current_params  #stores i=0
+        self.logL_chain[0] = self.current_loglike
+    
+    def proposal(self):
+        """
+        Propose a new parameter point using a Gaussian random walk.
+
+        Returns
+        -------
+        p_prime : np.ndarray
+            Proposed parameter vector [H0, Omega_m, Omega_lambda].
+        """
+        step = self.rng.normal(0.0, scale = self.step_size, size = 3)
+        # Independent Gaussian jump in each parameter dimension.
+        p_prime = self.current_params + step
+        return p_prime
+    
+    def run(self):
+        """
+        Execute the Metropolis sampling loop and record the full chain.
+
+        Returns
+        -------
+        None
+        """
+        for i in range(1, self.steps):
+            p_prime = self.proposal()
+            logL_prime = -self.like.negLogLikelihood(p_prime, self.n, model_type = "standard")
+
+            if logL_prime > self.current_loglike:
+                # Always accept uphill moves in log-likelihood.
+                accept = True
+
+            else:
+                u = np.random.uniform(0.0, 1.0)
+                accept = (np.log(u) < (logL_prime - self.current_loglike))
+
+            if accept == True:
+                self.current_params = p_prime
+                self.current_loglike = logL_prime
+            # If rejected, we intentionally keep previous state (pi+1 = pi).
+
+            self.chain[i] = self.current_params
+            self.logL_chain[i] = self.current_loglike
+            # Record every step, including repeats
+
+        self.analysis()
+
+    def plot_loglike_trace(self):
+        """
+        Plot log-likelihood values against MCMC step number.
+
+        Returns
+        -------
+        None
+        """
+        plt.figure()
+        plt.plot(self.logL_chain)
+        plt.xlabel("Step")
+        plt.ylabel("log-likelihood")
+        plt.title("Burn In period for Log-Likelihood")
+        plt.ylim(-700, -500)
+        plt.show()
+
+    def analysis(self):
+        """
+        Perform burn-in removal and generate posterior diagnostic plots.
+
+        Returns
+        -------
+        None
+        """
+        burn_in = 200
+        burnin_params = self.chain[burn_in:]
+        burnin_logL = self.logL_chain[burn_in:]
+        # Burn-in removes initial transient while chain moves toward high-probability region.
+
+        H0 = burnin_params[:, 0]
+        Om = burnin_params[:, 1]
+        Ol = burnin_params[:, 2]
+        # Columns follow parameter order [H0, Omega_m, Omega_lambda].
+
+        #1d probability distributions for each parameter
+        plt.figure()
+        plt.subplot(1, 3, 1)
+        plt.hist(H0, bins = 40)
+        plt.xlabel("H0")
+        plt.ylabel("Probability Distribution")
+
+        plt.subplot(1, 3, 2)
+        plt.hist(Om, bins = 40)
+        plt.xlabel("Omega m")
+        plt.ylabel("Probability Distribution")
+
+        plt.subplot(1, 3, 3)
+        plt.hist(Ol, bins = 40)
+        plt.xlabel("Omega lambda")
+        plt.ylabel("Probability Distribution")
+        plt.show()
+
+
+        #3d plots
+        plt.figure()
+        scat = plt.scatter(Om, H0, c=Ol)
+        # Color maps the third parameter to give a 3D view in a 2D plot.
+        plt.xlabel("Omega m")
+        plt.ylabel("H0")
+        plt.title("H0 against Omega m with Omega lambda represented with colour")
+        plt.colorbar(scat, label = "Omega lambda")
+        plt.show()
 
 
 def main():
+    """
+    Set up cosmology objects and run the Metropolis workflow.
+
+    Returns
+    -------
+    None
+    """
     H0 = 70
     Omega_m = 0.3
     Omega_lambda = 0.7
@@ -370,6 +592,7 @@ def main():
 
     cosmo = Cosmology(H0, Omega_m, Omega_lambda)
     like = Likelihood(cosmo)
+    metro = Metropolis(like)
 
     #standard model
     #best_params_std, best_fun_std = like.optimise(n, model_type = "standard")
@@ -377,8 +600,11 @@ def main():
     #no lambda model
     #best_params_nolambda, best_params_nolambda = like.optimise(n, model_type = "no_lambda")
 
-    like_grid_3d = like.likelihoodGrid3d(n)
-    like.marginalizedLikelihoods(like_grid_3d)
+    #likelihood grids
+    #like_grid_3d, p0, p1, p2 = like.likelihoodGrid3d(n)
+    #like.marginalizedLikelihoods(like_grid_3d, p0, p1, p2)
+
+    metro.run()
    
 if __name__ == "__main__":
     main()
