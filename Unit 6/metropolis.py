@@ -111,7 +111,7 @@ class Metropolis:
         acceptance_rate = acceptance_count / self.steps
         print(f"Acceptance rate: {acceptance_rate*100}%")
 
-        #self.analysis()  #analysis and graphing
+        self.analysis()  #analysis and graphing
 
     def plot_loglike_trace(self):
         """
@@ -201,7 +201,7 @@ class Metropolis:
         return chain_list
     
     def gelmanRubin(self):
-        N = 10000  #length of chains
+        N = 1000  #length of chains
         M = 2  #number of chains
         burn_in = 200
         
@@ -234,6 +234,7 @@ def main():
     like = Likelihood(cosmo)
     metro = Metropolis(like)
 
+
     metro.gelmanRubin()
 
     #standard model
@@ -246,7 +247,9 @@ def main():
     #like_grid_3d, p0, p1, p2 = like.likelihoodGrid3d(n)
     #like.marginalizedLikelihoods(like_grid_3d, p0, p1, p2)
 
-    #metro.run()
+    metro.run()
+    metro.plot_loglike_trace()
+
    
 if __name__ == "__main__":
     main()

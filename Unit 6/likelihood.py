@@ -418,5 +418,16 @@ class Likelihood:
         plt.title("1D marginalized likelihood for Omega lambda")
         plt.show()
         
+def main():
+    n = 2500
+    H0 = 70
+    Omega_m = 0.3
+    Omega_lambda = 0.7
+    cosmo = Cosmology(H0, Omega_m, Omega_lambda)
+    like = Likelihood(cosmo)
 
+    G3d, p0, p1, p2 = like.likelihoodGrid3d(n)
+    like.marginalizedLikelihoods(G3d, p0, p1, p2)
 
+if __name__ == "__main__":
+    main()
