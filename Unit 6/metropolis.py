@@ -43,7 +43,8 @@ class Metropolis:
         """
         self.like = like
         self.n = 2500  #integration steps
-        self.steps = 1000
+        self.steps = 16000
+    
 
         self.step_size = np.array([0.3, 0.07, 0.1])
         self.rng = np.random.default_rng()
@@ -68,7 +69,7 @@ class Metropolis:
         p_prime : np.ndarray
             Proposed parameter vector [H0, Omega_m, Omega_lambda].
         """
-        step = self.rng.normal(0.0, scale = self.step_size, size = 3)
+        step = self.rng.normal(loc=0.0, scale = self.step_size, size = 3)
         # Independent Gaussian jump in each parameter dimension.
         p_prime = self.current_params + step
         return p_prime
@@ -135,7 +136,9 @@ class Metropolis:
 
         Returns
         -------
-        None
+        stats : dict
+            Dictionary containing mean and error on the mean for
+            H0, Omega_m, and Omega_lambda.
         """
         burn_in = 200
         burnin_params = self.chain[burn_in:]
@@ -146,6 +149,25 @@ class Metropolis:
         Om = burnin_params[:, 1]
         Ol = burnin_params[:, 2]
         # Columns follow parameter order [H0, Omega_m, Omega_lambda].
+
+        n_samples = len(H0)
+
+        H0_mean = np.mean(H0)
+        H0_sem = np.std(H0, ddof=1) / np.sqrt(n_samples)
+        Om_mean = np.mean(Om)
+        Om_sem = np.std(Om, ddof=1) / np.sqrt(n_samples)
+        Ol_mean = np.mean(Ol)
+        Ol_sem = np.std(Ol, ddof=1) / np.sqrt(n_samples)
+
+        print(f"H0 mean ± error on mean: {H0_mean:.4f} ± {H0_sem:.4f}")
+        print(f"Omega_m mean ± error on mean: {Om_mean:.4f} ± {Om_sem:.4f}")
+        print(f"Omega_lambda mean ± error on mean: {Ol_mean:.4f} ± {Ol_sem:.4f}")
+
+        stats = {
+            "H0": {"mean": H0_mean, "error_on_mean": H0_sem},
+            "Omega_m": {"mean": Om_mean, "error_on_mean": Om_sem},
+            "Omega_lambda": {"mean": Ol_mean, "error_on_mean": Ol_sem},
+        }
 
         #1d probability distributions for each parameter
         plt.figure()
@@ -176,6 +198,87 @@ class Metropolis:
         plt.colorbar(scat, label = "Omega lambda")
         plt.show()
 
+    def runningMeanPlots(self, burn_in = 200):
+        """
+        Plot running means for H0, Omega_m, and Omega_lambda after burn-in.
+
+        Parameters
+        ----------
+        burn_in : int, optional
+            Number of initial samples to discard.
+
+        Returns
+        -------
+        running_means : dict
+            Running mean arrays keyed by parameter name.
+        """
+        if burn_in >= len(self.chain):
+            raise ValueError("burn_in must be smaller than the chain length.")
+
+        samples = self.chain[burn_in:]
+        steps = np.arange(1, len(samples) + 1)
+
+        H0 = samples[:, 0]
+        Om = samples[:, 1]
+        Ol = samples[:, 2]
+
+        run_H0 = np.cumsum(H0) / steps
+        run_Om = np.cumsum(Om) / steps
+        run_Ol = np.cumsum(Ol) / steps
+
+        final_H0 = run_H0[-1]
+        final_Om = run_Om[-1]
+        final_Ol = run_Ol[-1]
+
+        x = np.arange(burn_in, len(self.chain))
+
+        #0.1% of parameter final value
+        converge_lim_H0 = 1 / 1000 * final_H0
+
+        #1% of parameter final value    
+        converge_lim_Om = 1 / 100 * final_Om
+        converge_lim_Ol = 1 / 100 * final_Ol
+
+        plt.figure(figsize=(12, 4))
+
+        plt.subplot(1, 3, 1)
+        plt.plot(x, run_H0)
+        plt.axhline(final_H0, color="black", linestyle=":", linewidth=1)
+        plt.axhspan(final_H0 - converge_lim_H0, final_H0 + converge_lim_H0, color = "orange", alpha = 0.5)
+        plt.xlabel("Step")
+        plt.ylabel("Running mean")
+        plt.title("Running mean of H0")
+
+        plt.subplot(1, 3, 2)
+        plt.plot(x, run_Om)
+        plt.axhline(final_Om, color="black", linestyle=":", linewidth=1)
+        plt.axhspan(final_Om - converge_lim_Om, final_Om + converge_lim_Om, color = "orange", alpha = 0.5)
+        plt.xlabel("Step")
+        plt.ylabel("Running mean")
+        plt.title("Running mean of Omega_m")
+
+        plt.subplot(1, 3, 3)
+        plt.plot(x, run_Ol)
+        plt.axhline(final_Ol, color="black", linestyle=":", linewidth=1)
+        plt.axhspan(final_Ol - converge_lim_Ol, final_Ol + converge_lim_Ol, color = "orange", alpha = 0.5)
+        plt.xlabel("Step")
+        plt.ylabel("Running mean")
+        plt.title("Running mean of Omega_lambda")
+
+        plt.tight_layout()
+        plt.show()
+
+        print(f"Final running mean H0: {final_H0:.5f}")
+        print(f"Final running mean Omega_m: {final_Om:.5f}")
+        print(f"Final running mean Omega_lambda: {final_Ol:.5f}")
+
+        running_means = {
+            "H0": run_H0,
+            "Omega_m": run_Om,
+            "Omega_lambda": run_Ol,
+        }
+        return running_means
+
     def runMultipleChains(self, M, N, burn_in):
 
         chain_list = np.zeros((M, N - burn_in, 3))
@@ -190,7 +293,7 @@ class Metropolis:
             metro.logL_chain = np.zeros(metro.steps)
 
             metro.current_params = self.current_params
-            metro.current_loglike = -metro.like.negLogLikelihood(metro.current_params, metro.n, model_type="standard")
+            metro.current_loglike = -metro.like.negLogLikelihood(metro.current_params, metro.n, model_type = "standard")
             
             metro.chain[0] = metro.current_params
             metro.logL_chain[0] = metro.current_loglike
@@ -201,21 +304,23 @@ class Metropolis:
         return chain_list
     
     def gelmanRubin(self):
-        N = 1000  #length of chains
+        N = 2000  #length of chains
         M = 2  #number of chains
         burn_in = 200
         
         chains = self.runMultipleChains(M, N, burn_in)
         N_eff = N - burn_in  #number of elements in the chain after burn in
 
-        chain_means = np.mean(chains, axis=1)
-        chain_vars = np.var(chains, axis=1)
+        chain_means = np.mean(chains, axis = 1)
+        chain_vars = np.var(chains, axis = 1)
 
-        B = np.var(chain_means, axis=0)
-        W = np.mean(chain_vars, axis=0)
+        B = np.var(chain_means, axis = 0)
+        W = np.mean(chain_vars, axis = 0)
 
-        R = np.sqrt(((N - 1) / N) + (((M + 1) / M) * (B / W)))
+        R = np.sqrt(((N_eff - 1) / N_eff) + (((M + 1) / M) * (B / W)))
+        print(f"For {M} chains of length {N} the variance of the means is {B}, and the mean of the variances is {W}")
         print(f"Gelman Rubin statistic: {R}")
+
 
 def main():
     """
@@ -235,7 +340,7 @@ def main():
     metro = Metropolis(like)
 
 
-    metro.gelmanRubin()
+    #metro.gelmanRubin()
 
     #standard model
     #best_params_std, best_fun_std = like.optimise(n, model_type = "standard")
@@ -248,7 +353,10 @@ def main():
     #like.marginalizedLikelihoods(like_grid_3d, p0, p1, p2)
 
     metro.run()
-    metro.plot_loglike_trace()
+    #metro.plot_loglike_trace()
+    #results = metro.convergenceByChainLength()
+
+    #metro.runningMeanPlots()
 
    
 if __name__ == "__main__":

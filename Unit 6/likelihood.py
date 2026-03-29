@@ -369,6 +369,36 @@ class Likelihood:
         P_omega_lambda = np.nansum(L3d, axis = (0, 1))
         # Each 1D curve integrates out the other two parameters.
 
+        # Calculate peak values and errors (standard deviation of the likelihood distribution)
+        # Normalize likelihoods to probability distributions
+        P_H0_norm = P_H0 / np.sum(P_H0)
+        P_omega_m_norm = P_omega_m / np.sum(P_omega_m)
+        P_omega_lambda_norm = P_omega_lambda / np.sum(P_omega_lambda)
+        
+        # H0 statistics
+        peak_idx_H0 = np.argmax(P_H0)
+        peak_param_H0 = p2[peak_idx_H0]
+        mean_H0 = np.sum(p2 * P_H0_norm)
+        variance_H0 = np.sum((p2 - mean_H0)**2 * P_H0_norm)
+        error_H0 = np.sqrt(variance_H0)
+        
+        # Omega_m statistics
+        peak_idx_Om = np.argmax(P_omega_m)
+        peak_param_Om = p0[peak_idx_Om]
+        mean_Om = np.sum(p0 * P_omega_m_norm)
+        variance_Om = np.sum((p0 - mean_Om)**2 * P_omega_m_norm)
+        error_Om = np.sqrt(variance_Om)
+        
+        # Omega_lambda statistics
+        peak_idx_Ol = np.argmax(P_omega_lambda)
+        peak_param_Ol = p1[peak_idx_Ol]
+        mean_Ol = np.sum(p1 * P_omega_lambda_norm)
+        variance_Ol = np.sum((p1 - mean_Ol)**2 * P_omega_lambda_norm)
+        error_Ol = np.sqrt(variance_Ol)
+
+        print("H0 peak: {:.4f} ± {:.4f}".format(peak_param_H0, error_H0))
+        print("Omega_m peak: {:.4f} ± {:.4f}".format(peak_param_Om, error_Om))
+        print("Omega_lambda peak: {:.4f} ± {:.4f}".format(peak_param_Ol, error_Ol))
 
         #plot the 2d results
         plt.figure()

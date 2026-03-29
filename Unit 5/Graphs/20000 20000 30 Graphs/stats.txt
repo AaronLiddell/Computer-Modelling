@@ -1,0 +1,4 @@
+Acceptance rate: 8.74%
+H0 mean ± error on mean: 72.1330 ± 0.0022
+Omega_m mean ± error on mean: 0.3473 ± 0.0003
+Omega_lambda mean ± error on mean: 0.8252 ± 0.0005
