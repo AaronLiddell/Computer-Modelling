@@ -1,4 +1,4 @@
-# Computer Modelling
+# Cosmological Parameter Estimation using MCMC
 
 Python coursework for a Computer Modelling course. The six units build, step by step, a cosmological parameter-estimation pipeline: starting from a simple `Cosmology` class, adding numerical integration for cosmological distances, fitting a model to Type Ia supernova data, and finally sampling the posterior with a Metropolis–Hastings MCMC sampler.
 
